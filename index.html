@@ -1,0 +1,469 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Extinct Blocks</title>
+<style>
+  :root {
+    --paper: #f3ede1;
+    --ink: #1d1a16;
+    --muted: #6b6257;
+    --accent: #b5452b;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; overflow: hidden; background: var(--paper); color: var(--ink);
+    font-family: "Georgia", serif; }
+  canvas { display: block; touch-action: none; }
+
+  #hud { position: fixed; top: 16px; left: 16px; max-width: 320px; pointer-events: none; }
+  #hud h1 { margin: 0 0 6px; font-size: 28px; letter-spacing: -0.5px; }
+  #hud p { margin: 0 0 12px; font: 13px/1.45 ui-monospace, Menlo, Consolas, monospace; color: var(--muted); }
+  button { font: 600 13px ui-monospace, Menlo, Consolas, monospace; padding: 8px 12px; border: 1.5px solid var(--ink);
+    background: #fffaf0; color: var(--ink); border-radius: 6px; cursor: pointer; }
+  button:hover { background: var(--ink); color: var(--paper); }
+
+  #tip { position: fixed; pointer-events: none; display: grid; grid-template-columns: auto auto; gap: 14px;
+    padding: 10px 14px; background: var(--ink); color: var(--paper); border-radius: 6px; }
+  #tip .who { padding-right: 14px; border-right: 1px solid rgba(243, 237, 225, 0.25); max-width: 190px; }
+  #tip strong { display: block; font: 600 15px/1.25 Georgia, serif; }
+  #tip em { display: block; margin-top: 3px; font: italic 13px/1.3 Georgia, serif; color: #d8cfc0; }
+  #tip dl { margin: 0; display: grid; grid-template-columns: auto auto; gap: 4px 10px;
+    font: 12px/1.35 ui-monospace, Menlo, Consolas, monospace; }
+  #tip dt { color: #a99e8d; }
+  #tip dd { margin: 0; max-width: 200px; }
+
+  #card { position: fixed; right: 16px; bottom: 16px; width: min(340px, calc(100vw - 32px)); padding: 18px 20px;
+    background: #fffaf0; border: 1.5px solid var(--ink); border-radius: 10px; box-shadow: 6px 6px 0 var(--ink); }
+  #card h2 { margin: 0; font-size: 22px; }
+  #card .year { margin: 2px 0 10px; font: 12px ui-monospace, Menlo, Consolas, monospace; color: var(--accent); }
+  #card p { margin: 0; font-size: 15px; line-height: 1.5; }
+  #card .close { position: absolute; top: 10px; right: 10px; padding: 2px 8px; }
+  #card .more { display: inline-block; margin-top: 14px; font: 600 13px ui-monospace, Menlo, Consolas, monospace; color: var(--accent); }
+  [hidden] { display: none !important; }
+</style>
+<script type="importmap">
+{ "imports": {
+  "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+  "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+} }
+</script>
+</head>
+<body>
+<div id="hud">
+  <h1>Extinct</h1>
+  <p>Chase a block with your cursor. Catch it to stop it, then click to read about the animal.</p>
+</div>
+<div id="tip" hidden>
+  <div class="who">
+    <strong id="tip-name"></strong>
+    <em id="tip-species"></em>
+  </div>
+  <dl>
+    <dt>Extinct</dt><dd id="tip-extinct"></dd>
+    <dt>Last seen</dt><dd id="tip-seen"></dd>
+    <dt>Cause</dt><dd id="tip-cause"></dd>
+  </dl>
+</div>
+<div id="card" hidden>
+  <button class="close" aria-label="Close">×</button>
+  <h2 id="card-name"></h2>
+  <div class="year" id="card-year"></div>
+  <p id="card-fact"></p>
+  <a class="more" id="card-link" href="#">Read more →</a>
+</div>
+
+<script type="module">
+import * as THREE from 'three';
+import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
+
+// Swap `emoji` for your friend's art by setting `img` to a transparent PNG,
+// e.g. img: 'illustrations/dodo.png'.
+// extinct = when the last one died (or when it was officially declared extinct)
+const ANIMALS = [
+  { name: 'Xerces Blue Butterfly', species: 'Glaucopsyche xerces', extinct: '~1943', lastSeen: '1941–1943', cause: 'Habitat loss as San Francisco grew', emoji: '🦋', fact: 'Lived only in the sand dunes of San Francisco. It vanished as the city built over its habitat.' },
+  { name: 'Golden Toad', species: 'Incilius periglenes', extinct: '2004 (declared)', lastSeen: '15 May 1989', cause: 'Chytrid fungus, climate change', emoji: '🐸', fact: 'Bright orange toads from a single cloud forest in Costa Rica.' },
+  { name: 'Bramble Cay Melomys', species: 'Melomys rubicola', extinct: '2016 (declared)', lastSeen: '2009', cause: 'Sea-level rise and storm surges', emoji: '🐭', fact: 'A small rodent from one tiny island. It is thought to be the first mammal wiped out by climate change.' },
+  { name: 'Carolina Parakeet', species: 'Conuropsis carolinensis', extinct: '21 Feb 1918', lastSeen: '1910 (in the wild)', cause: 'Habitat loss, hunting', emoji: '🦜', fact: 'The only parrot native to the eastern United States. The last one, Incas, died at the Cincinnati Zoo.' },
+  { name: 'Passenger Pigeon', species: 'Ectopistes migratorius', extinct: '1 Sep 1914', lastSeen: '1900 (in the wild)', cause: 'Mass hunting, deforestation', emoji: '🕊️', fact: 'Once the most common bird in North America, flying in flocks of billions. The last one, Martha, died in a zoo.' },
+  { name: 'Heath Hen', species: 'Tympanuchus cupido cupido', extinct: '1932', lastSeen: '11 Mar 1932', cause: 'Hunting, habitat loss, disease', emoji: '🐔', fact: 'A wild prairie chicken of the US East Coast. The last one, "Booming Ben", lived alone on Martha\'s Vineyard.' },
+  { name: 'Laughing Owl', species: 'Ninox albifacies', extinct: '1914', lastSeen: '1914 (found dead)', cause: 'Introduced stoats and cats', emoji: '🦉', fact: 'A New Zealand owl named for its shrieking, laughing call.' },
+  { name: 'Ivory-billed Woodpecker', species: 'Campephilus principalis', extinct: 'Not yet official', lastSeen: '1944', cause: 'Logging of old-growth forest', emoji: '🐦', fact: 'A huge woodpecker of old southern US swamp forests. People still search for it.' },
+  { name: 'Great Auk', species: 'Pinguinus impennis', extinct: '3 Jun 1844', lastSeen: '1852 (unconfirmed)', cause: 'Hunting for feathers, meat and oil', emoji: '🐧', fact: 'A flightless seabird of the North Atlantic. The last known pair was killed on Eldey Island, Iceland.' },
+  { name: 'Dodo', species: 'Raphus cucullatus', extinct: '~1681', lastSeen: '1662', cause: 'Hunting, invasive rats and pigs', emoji: '🦤', fact: 'A flightless bird from Mauritius. Gone less than a century after sailors arrived.' },
+  { name: 'Pinta Island Tortoise', species: 'Chelonoidis abingdonii', extinct: '24 Jun 2012', lastSeen: '24 Jun 2012', cause: 'Hunted by sailors, goats ate its food', emoji: '🐢', fact: 'A Galápagos giant tortoise. The last one, Lonesome George, died at about 100 years old.' },
+  { name: 'Baiji (Yangtze River Dolphin)', species: 'Lipotes vexillifer', extinct: '2006 (declared)', lastSeen: '2002', cause: 'Fishing gear, boat traffic, dams', emoji: '🐬', fact: 'A river dolphin from China, declared functionally extinct after a 2006 survey found none.' },
+  { name: 'Pyrenean Ibex', species: 'Capra pyrenaica pyrenaica', extinct: '6 Jan 2000', lastSeen: '6 Jan 2000', cause: 'Hunting, competition with livestock', emoji: '🐐', fact: 'A wild goat from Spain. A clone of it was born in 2003 but lived only a few minutes.' },
+  { name: 'Quagga', species: 'Equus quagga quagga', extinct: '12 Aug 1883', lastSeen: '12 Aug 1883 (Amsterdam zoo)', cause: 'Hunting for meat and hides', emoji: '🦓', fact: 'A half-striped zebra from South Africa, hunted until none were left.' },
+  { name: 'Thylacine (Tasmanian Tiger)', species: 'Thylacinus cynocephalus', extinct: '7 Sep 1936', lastSeen: '1930 (in the wild)', cause: 'Bounty hunting, disease', emoji: '🐯', fact: 'A striped marsupial predator. The last known one died in a zoo in Hobart.' },
+  { name: 'Japanese Sea Lion', species: 'Zalophus japonicus', extinct: 'Late 1970s', lastSeen: '1974', cause: 'Hunting for oil and skins', emoji: '🦭', fact: 'Lived around the Sea of Japan. Hunted for oil and skins and captured for circuses until it disappeared.' },
+  { name: 'Caribbean Monk Seal', species: 'Neomonachus tropicalis', extinct: '2008 (declared)', lastSeen: '1952', cause: 'Hunting for oil', emoji: '🦭', fact: 'The only seal native to the Caribbean.' },
+  { name: 'Aurochs', species: 'Bos primigenius', extinct: '1627', lastSeen: '1627', cause: 'Hunting, habitat loss', emoji: '🐂', fact: 'The wild ancestor of modern cattle. The last one died in a Polish forest.' },
+  { name: "Steller's Sea Cow", species: 'Hydrodamalis gigas', extinct: '1768', lastSeen: '1768', cause: 'Hunting for meat', emoji: '🐋', fact: 'A giant relative of the manatee, up to 9 m long. Hunted out within 27 years of being discovered.' },
+  { name: 'Western Black Rhino', species: 'Diceros bicornis longipes', extinct: '2011 (declared)', lastSeen: '2006', cause: 'Poaching for its horn', emoji: '🦏', fact: 'A subspecies of black rhino from Central Africa.' },
+  { name: 'Woolly Mammoth', species: 'Mammuthus primigenius', extinct: '~2000 BCE', lastSeen: '~2000 BCE (Wrangel Island)', cause: 'Warming climate, human hunting', emoji: '🦣', fact: 'The last mammoths survived on Wrangel Island while the pyramids of Egypt were being built.' },
+];
+
+const S = 1;              // block size
+const MAX_ON_SCREEN = 15;  // never more than this many blocks at once
+const ROLL_TIME = 0.42;   // seconds to tip over one edge
+const SETTLE_TIME = 0.18; // little rock back after landing
+const FLEE_RADIUS = 3;    // how close the cursor gets (in block widths) before a block runs
+const FLEE_SPEEDUP = 0.5; // a scared block tips over in half the time, still slower than a mouse
+const EDGE = new THREE.Color(0x8a7f70);
+const ACCENT = new THREE.Color(0xb5452b);
+const UP = new THREE.Vector3(0, 1, 0);
+const rand = (a, b) => a + Math.random() * (b - a);
+
+// ---------- scene ----------
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.setSize(innerWidth, innerHeight);
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+document.body.prepend(renderer.domElement);
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color('#f3ede1');
+
+const camera = new THREE.PerspectiveCamera(35, innerWidth / innerHeight, 0.1, 100);
+camera.position.set(0, 15, 10);
+camera.lookAt(0, 0, 0);
+
+scene.add(new THREE.HemisphereLight(0xffffff, 0xd8cbb4, 1.6));
+const sun = new THREE.DirectionalLight(0xffffff, 1.4);
+sun.position.set(6, 14, 5);
+sun.castShadow = true;
+sun.shadow.mapSize.set(2048, 2048);
+sun.shadow.radius = 6;
+Object.assign(sun.shadow.camera, { left: -22, right: 22, top: 22, bottom: -22 });
+scene.add(sun);
+
+const ground = new THREE.Mesh(new THREE.PlaneGeometry(80, 80), new THREE.ShadowMaterial({ opacity: 0.12 }));
+ground.rotation.x = -Math.PI / 2;
+ground.receiveShadow = true;
+scene.add(ground);
+
+// ---------- blocks ----------
+const boxGeo = new RoundedBoxGeometry(S * 0.92, S * 0.92, S * 0.92, 4, 0.06);
+const edgeGeo = new THREE.EdgesGeometry(new THREE.BoxGeometry(S * 0.92, S * 0.92, S * 0.92));
+const backMat = new THREE.MeshStandardMaterial({ color: 0xffffff, transparent: true, opacity: 0.35, side: THREE.BackSide, depthWrite: false, roughness: 0.2 });
+const frontMat = new THREE.MeshStandardMaterial({ color: 0xffffff, transparent: true, opacity: 0.18, depthWrite: false, roughness: 0.05, metalness: 0.1 });
+
+function emojiTexture(emoji) {
+  const c = document.createElement('canvas');
+  c.width = c.height = 256;
+  const ctx = c.getContext('2d');
+  ctx.font = '170px "Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(emoji, 128, 140);
+  const tex = new THREE.CanvasTexture(c);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  return tex;
+}
+
+const loader = new THREE.TextureLoader();
+const blocks = ANIMALS.map(data => {
+  const group = new THREE.Group();
+
+  const back = new THREE.Mesh(boxGeo, backMat);
+  back.renderOrder = 0;
+  back.castShadow = true;
+
+  // a sprite always faces the camera, so the art stays upright while the glass box tumbles around it
+  const map = data.img ? loader.load(data.img, t => { t.colorSpace = THREE.SRGBColorSpace; }) : emojiTexture(data.emoji);
+  const art = new THREE.Sprite(new THREE.SpriteMaterial({ map, alphaTest: 0.1 }));
+  art.scale.setScalar(S * 0.72);
+  art.renderOrder = 1;
+
+  const front = new THREE.Mesh(boxGeo, frontMat);
+  front.renderOrder = 2;
+
+  const edgeMat = new THREE.LineBasicMaterial({ color: EDGE, transparent: true, opacity: 0.55 });
+  const edges = new THREE.LineSegments(edgeGeo, edgeMat);
+  edges.renderOrder = 2;
+
+  group.add(back, art, front, edges);
+  group.visible = false;
+  scene.add(group);
+
+  const block = {
+    data, group, front, edgeMat,
+    active: false,
+    state: 'wait',   // wait -> roll -> settle -> wait ...
+    timer: 0,
+    pace: 1,
+    heading: new THREE.Vector3(),
+    dest: new THREE.Vector3(),
+    roll: null,
+  };
+  front.userData.block = block;
+  return block;
+});
+const active = () => blocks.filter(b => b.active);
+
+// ---------- rolling ----------
+const tmpQ = new THREE.Quaternion();
+
+// is there room for a block centered at p?
+function isFree(p, self, gap = 1.2 * S) {
+  return active().every(o => o === self ||
+    (o.group.position.distanceTo(p) > gap && o.dest.distanceTo(p) > gap));
+}
+
+// is the cursor close enough to scare this block?
+const isScared = b => cursorFloor !== null && b.group.position.distanceTo(cursorFloor) < FLEE_RADIUS;
+
+function tryStartRoll(b) {
+  const forward = b.heading;
+  const left = new THREE.Vector3(forward.z, 0, -forward.x);
+  const right = left.clone().negate();
+  const back = forward.clone().negate();
+  const scared = isScared(b);
+  let options;
+  if (scared) {
+    // tip whichever way gets furthest from the cursor
+    const away = d => b.group.position.clone().addScaledVector(d, S).distanceTo(cursorFloor);
+    options = [forward, left, right, back].sort((a, c) => away(c) - away(a));
+  } else {
+    // mostly keep going, sometimes tip sideways
+    const r = Math.random();
+    options = [r < 0.8 ? forward : r < 0.9 ? left : right, forward, left, right];
+  }
+  for (const d of options) {
+    const dest = b.group.position.clone().addScaledVector(d, S);
+    if (!isFree(dest, b)) continue;
+    if (scared) b.heading = d.clone(); // keep running this way once the cursor is gone
+    const pivot = b.group.position.clone().addScaledVector(d, S / 2);
+    pivot.y = 0; // the bottom edge it tips over
+    b.roll = {
+      pivot,
+      axis: new THREE.Vector3(d.z, 0, -d.x),
+      offset: b.group.position.clone().sub(pivot),
+      q0: b.group.quaternion.clone(),
+      t: 0,
+      dur: ROLL_TIME * b.pace * (scared ? FLEE_SPEEDUP : 1),
+      scared,
+    };
+    b.dest.copy(dest);
+    b.state = 'roll';
+    return;
+  }
+  b.timer = 0.3; // boxed in, try again soon
+}
+
+// rotate the block by `angle` around its pivot edge
+function applyRoll(b, angle) {
+  const r = b.roll;
+  tmpQ.setFromAxisAngle(r.axis, angle);
+  b.group.quaternion.copy(tmpQ).multiply(r.q0);
+  b.group.position.copy(r.offset).applyQuaternion(tmpQ).add(r.pivot);
+}
+
+// slow start, speeds up as it falls over, like gravity taking over
+const rollAngle = u => (Math.PI / 2) * (0.3 * u + 0.7 * u * u);
+
+function rest(b, wait) {
+  b.roll = null;
+  b.group.position.y = S / 2;
+  b.group.quaternion.normalize();
+  b.dest.copy(b.group.position);
+  b.state = 'wait';
+  b.timer = wait;
+}
+
+function updateBlock(b, dt) {
+  const stopped = b === hovered || b === cardBlock;
+  b.edgeMat.color.copy(stopped ? ACCENT : EDGE);
+  b.edgeMat.opacity = stopped ? 1 : 0.55;
+
+  if (b.state === 'wait') {
+    if (stopped) return;
+    b.timer -= dt;
+    if (isScared(b)) b.timer = Math.min(b.timer, 0); // no dawdling when the cursor is close
+    if (b.timer <= 0) tryStartRoll(b);
+  } else if (b.state === 'roll') {
+    const r = b.roll;
+    // when stopped mid-tip, fall back or finish, whichever is closer
+    if (stopped && r.t / r.dur < 0.7) r.t -= dt * 2;
+    else r.t += dt * (stopped ? 2 : 1);
+    if (r.t <= 0) {
+      applyRoll(b, 0);
+      rest(b, 0.2);
+    } else if (r.t >= r.dur) {
+      applyRoll(b, Math.PI / 2);
+      r.t = 0;
+      b.state = 'settle';
+    } else {
+      applyRoll(b, rollAngle(r.t / r.dur));
+    }
+  } else if (b.state === 'settle') {
+    const r = b.roll;
+    r.t += dt;
+    const v = Math.min(r.t / (SETTLE_TIME * (r.scared ? 0.5 : 1)), 1);
+    applyRoll(b, Math.PI / 2 - 0.12 * Math.sin(Math.PI * v) * (1 - v));
+    if (v >= 1) rest(b, r.scared ? 0 : rand(0.02, 0.3) * b.pace);
+  }
+}
+
+// ---------- coming and going ----------
+const raycaster = new THREE.Raycaster();
+const floorPlane = new THREE.Plane(UP, 0);
+const ndc = new THREE.Vector2();
+const projected = new THREE.Vector3();
+
+function floorPointAt(x, y) {
+  raycaster.setFromCamera(ndc.set(x, y), camera);
+  return raycaster.ray.intersectPlane(floorPlane, new THREE.Vector3());
+}
+
+// onScreen: start somewhere visible; otherwise roll in from just past an edge of the screen
+function spawn(b, onScreen) {
+  let pos = null, target = null;
+  for (let tries = 0; tries < 12 && !pos; tries++) {
+    if (onScreen) {
+      pos = floorPointAt(rand(-0.8, 0.8), rand(-0.75, 0.6));
+      target = floorPointAt(rand(-1, 1), rand(-1, 1));
+    } else {
+      const t = rand(-0.85, 0.85);
+      const [x, y] = [[-1.15, t], [1.15, t], [t, 1.15], [t, -1.15]][Math.floor(Math.random() * 4)];
+      pos = floorPointAt(x, y);
+      target = floorPointAt(rand(-0.5, 0.5), rand(-0.5, 0.5));
+    }
+    if (!pos || !target) { pos = null; continue; }
+    pos.y = S / 2;
+    if (!isFree(pos, b, 1.6 * S)) pos = null;
+  }
+  if (!pos) return false;
+
+  b.heading.copy(target).sub(pos).setY(0).normalize();
+  b.group.position.copy(pos);
+  b.group.quaternion.setFromAxisAngle(UP, Math.atan2(-b.heading.z, b.heading.x));
+  b.group.visible = true;
+  b.active = true;
+  b.pace = rand(0.8, 1.3);
+  rest(b, rand(0, 0.6));
+  return true;
+}
+
+function despawnIfGone(b) {
+  if (b.state !== 'wait' || b === cardBlock) return;
+  projected.copy(b.group.position).project(camera);
+  if (Math.abs(projected.x) > 1.3 || Math.abs(projected.y) > 1.3) {
+    b.active = false;
+    b.group.visible = false;
+    pool.push(b);
+  }
+}
+
+// ---------- hover + info card ----------
+const tip = document.getElementById('tip');
+const card = document.getElementById('card');
+const mouse = { on: false, ndc: new THREE.Vector2(), x: 0, y: 0 };
+let hovered = null;
+let hoverGrace = 0;  // keeps a block stopped briefly if it slips out from under the cursor
+let cardBlock = null;
+
+function blockAt(point) {
+  raycaster.setFromCamera(point, camera);
+  const hit = raycaster.intersectObjects(active().map(b => b.front), false)[0];
+  return hit ? hit.object.userData.block : null;
+}
+
+addEventListener('pointermove', e => {
+  if (e.pointerType !== 'mouse') return;
+  mouse.on = true;
+  mouse.x = e.clientX;
+  mouse.y = e.clientY;
+  mouse.ndc.set((e.clientX / innerWidth) * 2 - 1, -(e.clientY / innerHeight) * 2 + 1);
+});
+document.documentElement.addEventListener('mouseleave', () => { mouse.on = false; });
+
+// where the cursor points on the floor, at block-center height; blocks flee from it
+const blockCenterPlane = new THREE.Plane(UP, -S / 2);
+let cursorFloor = null;
+
+function updateHover(dt) {
+  cursorFloor = null;
+  if (mouse.on) {
+    raycaster.setFromCamera(mouse.ndc, camera);
+    cursorFloor = raycaster.ray.intersectPlane(blockCenterPlane, new THREE.Vector3());
+  }
+  const hit = mouse.on ? blockAt(mouse.ndc) : null;
+  if (hit) {
+    hovered = hit;
+    hoverGrace = 0.4;
+  } else if ((hoverGrace -= dt) <= 0) {
+    hovered = null;
+  }
+  document.body.style.cursor = hit ? 'pointer' : '';
+  tip.hidden = !hit;
+  if (hit) {
+    if (tip.dataset.name !== hit.data.name) {
+      tip.dataset.name = hit.data.name;
+      document.getElementById('tip-name').textContent = hit.data.name;
+      document.getElementById('tip-species').textContent = hit.data.species;
+      document.getElementById('tip-extinct').textContent = hit.data.extinct;
+      document.getElementById('tip-seen').textContent = hit.data.lastSeen;
+      document.getElementById('tip-cause').textContent = hit.data.cause;
+    }
+    // sit below-right of the cursor, flipping to the other side near the screen edges
+    const w = tip.offsetWidth, h = tip.offsetHeight;
+    const x = mouse.x + 14 + w > innerWidth ? mouse.x - 14 - w : mouse.x + 14;
+    const y = mouse.y + 14 + h > innerHeight ? mouse.y - 14 - h : mouse.y + 14;
+    tip.style.left = Math.max(8, x) + 'px';
+    tip.style.top = Math.max(8, y) + 'px';
+  }
+}
+
+// click (or tap) a block to read about it; it stays put while its card is open
+renderer.domElement.addEventListener('pointerdown', e => {
+  const b = blockAt(new THREE.Vector2((e.clientX / innerWidth) * 2 - 1, -(e.clientY / innerHeight) * 2 + 1));
+  if (!b) return;
+  cardBlock = b;
+  document.getElementById('card-name').textContent = b.data.name;
+  document.getElementById('card-year').textContent = 'Extinct ' + b.data.extinct;
+  document.getElementById('card-fact').textContent = b.data.fact;
+  document.getElementById('card-link').href = b.data.name.split(' (')[0].toLowerCase().replace(/[^a-z]/g, '') + '.html';
+  card.hidden = false;
+});
+card.querySelector('.close').onclick = () => {
+  card.hidden = true;
+  cardBlock = null;
+};
+
+// ---------- start ----------
+const pool = [...blocks].sort(() => Math.random() - 0.5);
+for (let i = 0; i < 10; i++) {
+  const b = pool.shift();
+  if (!spawn(b, true)) pool.push(b);
+}
+let spawnTimer = 1;
+
+const clock = new THREE.Clock();
+renderer.setAnimationLoop(() => {
+  const dt = Math.min(clock.getDelta(), 1 / 30);
+  updateHover(dt);
+  for (const b of active()) {
+    updateBlock(b, dt);
+    despawnIfGone(b);
+  }
+  spawnTimer -= dt;
+  if (spawnTimer <= 0 && active().length < MAX_ON_SCREEN && pool.length) {
+    const b = pool.shift();
+    if (!spawn(b, false)) pool.push(b);
+    spawnTimer = rand(0.5, 1.4);
+  }
+  renderer.render(scene, camera);
+});
+
+addEventListener('resize', () => {
+  camera.aspect = innerWidth / innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(innerWidth, innerHeight);
+});
+</script>
+</body>
+</html>

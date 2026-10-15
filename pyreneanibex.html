@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Pyrenean Ibex | Extinct</title>
+<style>
+  :root {
+    --paper: #f3ede1;
+    --ink: #1d1a16;
+    --muted: #6b6257;
+    --accent: #b5452b;
+    --glass: rgba(255, 255, 255, 0.28);
+    --glass-edge: rgba(138, 127, 112, 0.6);
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; background: var(--paper); color: var(--ink); font-family: Georgia, serif; }
+  a { color: inherit; }
+
+  nav { display: flex; justify-content: space-between; gap: 16px; padding: 16px;
+    font: 13px ui-monospace, Menlo, Consolas, monospace; }
+  nav a { text-decoration: none; padding: 6px 10px; border: 1.5px solid var(--ink); border-radius: 6px; background: #fffaf0; }
+  nav a:hover { background: var(--ink); color: var(--paper); }
+
+  main { max-width: 960px; margin: 0 auto; padding: 24px 16px 64px; display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr); gap: 48px; align-items: center; }
+  @media (max-width: 720px) { main { grid-template-columns: 1fr; gap: 24px; } }
+
+  /* glass block, like the ones rolling on the home page */
+  .stage { aspect-ratio: 1; display: grid; place-items: center; perspective: 900px; position: relative; }
+  .cube { width: var(--s); height: var(--s); position: relative; transform-style: preserve-3d;
+    animation: turn 14s linear infinite; }
+  .cube div { position: absolute; inset: 0; background: var(--glass); border: 1.5px solid var(--glass-edge); border-radius: 6px; }
+  .cube .f1 { transform: translateZ(calc(var(--s) / 2)); }
+  .cube .f2 { transform: rotateY(180deg) translateZ(calc(var(--s) / 2)); }
+  .cube .f3 { transform: rotateY(90deg) translateZ(calc(var(--s) / 2)); }
+  .cube .f4 { transform: rotateY(-90deg) translateZ(calc(var(--s) / 2)); }
+  .cube .f5 { transform: rotateX(90deg) translateZ(calc(var(--s) / 2)); }
+  .cube .f6 { transform: rotateX(-90deg) translateZ(calc(var(--s) / 2)); }
+  .art { position: absolute; inset: 0; display: grid; place-items: center; font-size: min(28vw, 150px); pointer-events: none; }
+  .art img { width: 45%; height: auto; }
+  .shadow { position: absolute; bottom: 12%; width: 50%; height: 8%; border-radius: 50%; background: rgba(29, 26, 22, 0.12); filter: blur(8px); }
+  @keyframes turn { from { transform: rotateX(-18deg) rotateY(0); } to { transform: rotateX(-18deg) rotateY(360deg); } }
+  @media (prefers-reduced-motion: reduce) { .cube { animation: none; transform: rotateX(-18deg) rotateY(30deg); } }
+
+  h1 { margin: 0; font-size: clamp(34px, 6vw, 52px); line-height: 1.05; letter-spacing: -1px; }
+  .species { margin: 8px 0 28px; font-style: italic; font-size: 20px; color: var(--muted); }
+  dl { margin: 0 0 28px; display: grid; grid-template-columns: auto 1fr; border-top: 1.5px solid var(--ink); }
+  dt, dd { margin: 0; padding: 12px 0; border-bottom: 1px solid rgba(29, 26, 22, 0.2); }
+  dt { padding-right: 24px; font: 12px/1.6 ui-monospace, Menlo, Consolas, monospace; text-transform: uppercase;
+    letter-spacing: 0.06em; color: var(--accent); }
+  dd { font-size: 17px; }
+  .fact { margin: 0; font-size: 19px; line-height: 1.6; }
+</style>
+</head>
+<body>
+<nav>
+  <a href="index.html">← All animals</a>
+  <span>
+    <a href="baiji.html" title="Baiji (Yangtze River Dolphin)">‹ Prev</a>
+    <a href="quagga.html" title="Quagga">Next ›</a>
+  </span>
+</nav>
+<main>
+  <div class="stage" style="--s: min(48vw, 270px)">
+    <div class="shadow"></div>
+    <div class="cube"><div class="f1"></div><div class="f2"></div><div class="f3"></div><div class="f4"></div><div class="f5"></div><div class="f6"></div></div>
+    <div class="art"><span role="img" aria-label="Pyrenean Ibex">🐐</span></div>
+  </div>
+  <article>
+    <h1>Pyrenean Ibex</h1>
+    <p class="species">Capra pyrenaica pyrenaica</p>
+    <dl>
+      <dt>Extinct</dt><dd>6 Jan 2000</dd>
+      <dt>Last seen</dt><dd>6 Jan 2000</dd>
+      <dt>Cause</dt><dd>Hunting, competition with livestock</dd>
+    </dl>
+    <p class="fact">A wild goat from Spain. A clone of it was born in 2003 but lived only a few minutes.</p>
+  </article>
+</main>
+</body>
+</html>
